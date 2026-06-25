@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B3 (BVMF) — Futures Exchange Analysis</title>
+<style>
+  /* ── TOKENS ────────────────────────────────────────────────────── */
+  :root {
+    --bg:          #0d1117;
+    --surface:     #161b22;
+    --surface2:    #1c2330;
+    --border:      #30363d;
+    --b3-yellow:   #f5c518;   /* B3 brand yellow */
+    --b3-green:    #00c896;   /* accent */
+    --b3-red:      #e05252;
+    --text:        #c9d1d9;
+    --text-dim:    #8b949e;
+    --text-bright: #f0f6fc;
+    --mono:        'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    --sans:        'Inter', 'Segoe UI', system-ui, sans-serif;
+    --radius:      6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.65;
+  }
+
+  /* ── LAYOUT ────────────────────────────────────────────────────── */
+  .shell { display: flex; min-height: 100vh; }
+
+  nav {
+    width: 240px;
+    min-width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .nav-logo {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .nav-logo .exchange { font-size: 20px; font-weight: 700; color: var(--b3-yellow); letter-spacing: -0.5px; }
+  .nav-logo .subtitle { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+  .nav-group { padding: 8px 20px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); }
+  nav a {
+    display: block;
+    padding: 6px 20px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+  }
+  nav a:hover { color: var(--text-bright); border-left-color: var(--b3-yellow); background: rgba(245,197,24,0.05); }
+
+  main {
+    flex: 1;
+    padding: 40px 56px 80px;
+    max-width: 1100px;
+  }
+
+  /* ── HEADER ────────────────────────────────────────────────────── */
+  .doc-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 32px;
+    margin-bottom: 40px;
+  }
+  .doc-header .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--b3-yellow); font-weight: 600; margin-bottom: 8px; }
+  .doc-header h1 { font-size: 32px; font-weight: 700; color: var(--text-bright); letter-spacing: -0.8px; line-height: 1.2; }
+  .doc-header .meta-row { display: flex; gap: 24px; margin-top: 16px; flex-wrap: wrap; }
+  .meta-pill { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+  .meta-pill .label { color: var(--text); }
+  .status-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+  .status-draft { background: rgba(245,197,24,0.15); color: var(--b3-yellow); border: 1px solid rgba(245,197,24,0.3); }
+
+  /* ── SECTIONS ──────────────────────────────────────────────────── */
+  section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  h2 {
+    font-size: 20px; font-weight: 700; color: var(--text-bright);
+    letter-spacing: -0.4px; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2 .section-num { color: var(--b3-yellow); font-size: 13px; font-family: var(--mono); font-weight: 400; }
+  .section-divider { height: 1px; background: var(--border); margin-bottom: 20px; }
+  h3 { font-size: 15px; font-weight: 600; color: var(--text-bright); margin: 24px 0 12px; }
+  h4 { font-size: 13px; font-weight: 600; color: var(--b3-green); margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.6px; }
+  p { margin-bottom: 12px; color: var(--text); }
+
+  /* ── TABLES ────────────────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; margin: 16px 0; border-radius: var(--radius); border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--surface2); }
+  thead th { padding: 10px 14px; text-align: left; color: var(--text-dim); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.025); }
+  td { padding: 9px 14px; vertical-align: top; }
+  td code { background: var(--surface2); padding: 1px 5px; border-radius: 3px; font-family: var(--mono); font-size: 12px; color: var(--b3-green); }
+
+  /* ── CONFIDENCE BADGES ──────────────────────────────────────────── */
+  .conf { display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .conf-high   { background: rgba(0,200,150,0.15); color: var(--b3-green); border: 1px solid rgba(0,200,150,0.3); }
+  .conf-medium { background: rgba(245,197,24,0.12); color: var(--b3-yellow); border: 1px solid rgba(245,197,24,0.25); }
+  .conf-low    { background: rgba(224,82,82,0.12); color: var(--b3-red); border: 1px solid rgba(224,82,82,0.25); }
+
+  /* ── CALLOUTS ──────────────────────────────────────────────────── */
+  .callout { border-left: 3px solid; padding: 12px 16px; border-radius: 0 var(--radius) var(--radius) 0; margin: 16px 0; font-size: 13px; }
+  .callout-warn  { border-color: var(--b3-yellow); background: rgba(245,197,24,0.07); }
+  .callout-info  { border-color: #58a6ff; background: rgba(88,166,255,0.07); }
+  .callout-error { border-color: var(--b3-red); background: rgba(224,82,82,0.07); }
+  .callout-ok    { border-color: var(--b3-green); background: rgba(0,200,150,0.07); }
+  .callout .icon { font-style: normal; margin-right: 4px; }
+  .callout strong { color: var(--text-bright); }
+
+  /* ── CODE BLOCKS ────────────────────────────────────────────────── */
+  pre { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; overflow-x: auto; font-family: var(--mono); font-size: 12px; color: var(--text); margin: 12px 0; line-height: 1.5; }
+  code { font-family: var(--mono); }
+
+  /* ── DIAGRAMS (SVG inline) ──────────────────────────────────────── */
+  .diagram-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin: 20px 0; overflow-x: auto; }
+  .diagram-wrap svg text { font-family: var(--sans); }
+
+  /* ── TOC HIGHLIGHT ──────────────────────────────────────────────── */
+  .toc-label { font-size: 11px; color: var(--text-dim); padding: 4px 20px 0; }
+
+  /* ── TAG PILLS ──────────────────────────────────────────────────── */
+  .tag { display: inline-block; background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 7px; font-size: 11px; color: var(--text-dim); margin: 1px; }
+  .tag-b3 { background: rgba(245,197,24,0.1); border-color: rgba(245,197,24,0.3); color: var(--b3-yellow); }
+
+  /* ── OPEN QUESTIONS TABLE ───────────────────────────────────────── */
+  .q-high td:first-child { color: var(--b3-red); font-weight: 700; }
+  .q-med  td:first-child { color: var(--b3-yellow); font-weight: 700; }
+  .q-low  td:first-child { color: var(--text-dim); }
+
+  /* ── MISC ───────────────────────────────────────────────────────── */
+  ul { padding-left: 20px; margin-bottom: 12px; }
+  li { margin-bottom: 4px; }
+  .mono { font-family: var(--mono); font-size: 12px; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+  .highlight { color: var(--b3-yellow); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ═══════════════════════════ NAV ═══════════════════════════════ -->
+<nav>
+  <div class="nav-logo">
+    <div class="exchange">B3 · BVMF</div>
+    <div class="subtitle">Exchange Analysis · Futures</div>
+  </div>
+
+  <div class="nav-group">Overview</div>
+  <a href="#overview">1. Venue Overview</a>
+  <a href="#feed">2. Feed Architecture</a>
+
+  <div class="nav-group">Reference Data</div>
+  <a href="#refdata">3. Instrument Reference</a>
+  <a href="#symbology">4. Symbology</a>
+
+  <div class="nav-group">Field Catalogue</div>
+  <a href="#catalogue">5. Field Catalogue</a>
+  <a href="#mktstate">6. Market States</a>
+  <a href="#trades">7. Trade Classification</a>
+
+  <div class="nav-group">Nuances</div>
+  <a href="#nuances">8. Exchange Nuances</a>
+  <a href="#orderbook">9. Order Book Model</a>
+
+  <div class="nav-group">Test Cases</div>
+  <a href="#testcases">10. Test Cases</a>
+  <a href="#openqs">11. Open Questions</a>
+</nav>
+
+<!-- ═══════════════════════════ MAIN ═══════════════════════════════ -->
+<main>
+
+<!-- ── HEADER ─────────────────────────────────────────────────────── -->
+<div class="doc-header">
+  <div class="eyebrow">Exchange Analysis · BMLL Content Team</div>
+  <h1>B3 — Brasil, Bolsa, Balcão<br>Futures (DRV Segment)</h1>
+  <div class="meta-row">
+    <div class="meta-pill"><span>MIC:</span><span class="label">BVMF</span></div>
+    <div class="meta-pill"><span>Feed:</span><span class="label">Binary UMDF v1.8.0.2 (SBE / UDP Multicast)</span></div>
+    <div class="meta-pill"><span>Data Level:</span><span class="label">L3 / MBO</span></div>
+    <div class="meta-pill"><span>Segment:</span><span class="label">DRV — Derivatives &amp; FX</span></div>
+    <div class="meta-pill"><span>Status:</span><span class="status-badge status-draft">Draft</span></div>
+    <div class="meta-pill"><span>Analyst:</span><span class="label">BMLL Content Team</span></div>
+    <div class="meta-pill"><span>Spec Version:</span><span class="label">Messaging Guidelines v1.8.0.2 (May 2024) + Message Reference v2.2.0.1</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     §1  VENUE OVERVIEW
+════════════════════════════════════════════════════════════════════ -->
+<section id="overview">
+  <h2><span class="section-num">§1</span> Venue Overview</h2>
+  <div class="section-divider"></div>
+
+  <p>B3 S.A. — Brasil, Bolsa, Balcão (formerly BM&FBovespa) is Brazil's sole national exchange and the largest exchange in Latin America by market capitalisation. It operates two principal market segments relevant to BMLL derivatives coverage:</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Segment</th><th>Abbrev</th><th>Description</th><th>In Scope</th></tr></thead>
+      <tbody>
+        <tr><td>Derivatives &amp; FX</td><td><code>DRV</code></td><td>Exchange-traded futures, options and FX on the PUMA trading system (formerly BMF segment)</td><td>✅ Futures</td></tr>
+        <tr><td>Equities</td><td><code>EQT</code></td><td>Equities and equity derivatives (formerly BOVESPA segment)</td><td>❌ Out of scope</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Key Instrument Classes on DRV</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Product Class</th><th>Examples</th><th>BMLL InstrumentType</th></tr></thead>
+      <tbody>
+        <tr><td>Interest Rate Futures</td><td>DI1 (1-Day Interbank Rate), DAP, DDI</td><td><code>Futures</code></td></tr>
+        <tr><td>FX Futures</td><td>DOL (USD/BRL), EUR, GBP, JPY</td><td><code>Futures</code></td></tr>
+        <tr><td>Equity Index Futures</td><td>IND (Ibovespa), WIN (mini Ibovespa)</td><td><code>Futures</code></td></tr>
+        <tr><td>Commodity Futures</td><td>BGI (Hydrous Ethanol), CCM (Corn), WDO (mini USD)</td><td><code>Futures</code></td></tr>
+        <tr><td>Options on Futures</td><td>OZ1 (options on DOL futures)</td><td><code>Futures</code> (BMLL taxonomy)</td></tr>
+        <tr><td>Spreads / Strategies</td><td>User-Defined Spreads (UDS), Exchange-Defined Spreads (EDS)</td><td><code>Futures</code> — <code>IS_STRATEGY = true</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-info">
+    <span class="icon">ℹ️</span> <strong>BMLL InstrumentType Note:</strong> All derivatives map to <code>Futures</code> in BMLL taxonomy. Do not use "Derivatives" — it is not a valid BMLL InstrumentType value. Options on futures (e.g. OZ1) are also <code>Futures</code>. Strike prices apply to options but not outright futures contracts.
+  </div>
+
+  <h3>Trading Platform</h3>
+  <p>B3 runs the <strong>PUMA Trading System</strong> (matching engine) for all exchange products. The Binary UMDF feed is the high-performance SBE-encoded market data dissemination layer built on top of PUMA. It operates alongside the legacy FIX/FAST UMDF feed (which continues to support MBP/TOB data not available in Binary UMDF).</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     §2  FEED ARCHITECTURE
+════════════════════════════════════════════════════════════════════ -->
+<section id="feed">
+  <h2><span class="section-num">§2</span> Feed Architecture</h2>
+  <div class="section-divider"></div>
+
+  <h3>Binary UMDF — Key Properties</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Property</th><th>Value</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Encoding</td><td>SBE v1.0 (Simple Binary Encoding) Little-Endian</td><td>FIX SBE Technical Proposal v1.0</td></tr>
+        <tr><td>Transport</td><td>UDP Multicast</td><td>No delivery guarantee; packet loss possible</td></tr>
+        <tr><td>Max packet size</td><td>1,400 bytes</td><td>Fits single UDP datagram; compatible with most VPNs</td></tr>
+        <tr><td>Feeds</td><td>Feed A (primary), Feed B (backup same data), Feed C (DR site)</td><td>B3 recommends subscribing to A+B simultaneously</td></tr>
+        <tr><td>Streams per channel</td><td>Incremental, Snapshot Recovery, Instrument Definition</td><td>Instrument Definition replays periodically</td></tr>
+        <tr><td>Order book depth</td><td>MBO — full depth</td><td>MBP and TOB not available in Binary UMDF</td></tr>
+        <tr><td>Heartbeat interval</td><td>1 second (Sequence message)</td><td>3 missed heartbeats = stream considered down</td></tr>
+        <tr><td>Price precision</td><td>Decimal with exponent -4 (most prices); -8 for closing/adjusted prices</td><td>Null price encoded as <code>0x8000000000000000</code></td></tr>
+        <tr><td>Timestamps</td><td>UTC nanoseconds since Unix epoch</td><td>Microsecond-level precision in practice (SendingTime)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Channel & Stream Architecture</h3>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:760px;">
+      <!-- background rects -->
+      <rect x="0" y="0" width="760" height="220" fill="#161b22" rx="6"/>
+      <!-- Feed A box -->
+      <rect x="20" y="30" width="200" height="160" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="120" y="22" fill="#f5c518" font-size="11" text-anchor="middle" font-weight="600">FEED A (Main Site)</text>
+      <rect x="36" y="50" width="168" height="32" rx="3" fill="#0d1117" stroke="#f5c518" stroke-opacity="0.4"/>
+      <text x="120" y="70" fill="#c9d1d9" font-size="11" text-anchor="middle">Incremental Stream</text>
+      <rect x="36" y="92" width="168" height="32" rx="3" fill="#0d1117" stroke="#00c896" stroke-opacity="0.4"/>
+      <text x="120" y="112" fill="#c9d1d9" font-size="11" text-anchor="middle">Snapshot Recovery</text>
+      <rect x="36" y="134" width="168" height="32" rx="3" fill="#0d1117" stroke="#58a6ff" stroke-opacity="0.4"/>
+      <text x="120" y="154" fill="#c9d1d9" font-size="11" text-anchor="middle">Instrument Definition</text>
+      <!-- Feed B box -->
+      <rect x="240" y="30" width="200" height="80" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="340" y="22" fill="#f5c518" font-size="11" text-anchor="middle" font-weight="600">FEED B (Backup)</text>
+      <rect x="256" y="50" width="168" height="50" rx="3" fill="#0d1117" stroke="#f5c518" stroke-opacity="0.4"/>
+      <text x="340" y="70" fill="#c9d1d9" font-size="11" text-anchor="middle">Incremental Stream only</text>
+      <text x="340" y="86" fill="#8b949e" font-size="10" text-anchor="middle">(identical content to Feed A)</text>
+      <!-- Feed C box -->
+      <rect x="460" y="30" width="200" height="160" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="560" y="22" fill="#8b949e" font-size="11" text-anchor="middle" font-weight="600">FEED C (DR Site)</text>
+      <rect x="476" y="50" width="168" height="32" rx="3" fill="#0d1117" stroke="#8b949e" stroke-opacity="0.4"/>
+      <text x="560" y="70" fill="#8b949e" font-size="11" text-anchor="middle">Incremental Stream</text>
+      <rect x="476" y="92" width="168" height="32" rx="3" fill="#0d1117" stroke="#8b949e" stroke-opacity="0.4"/>
+      <text x="560" y="112" fill="#8b949e" font-size="11" text-anchor="middle">Snapshot Recovery</text>
+      <rect x="476" y="134" width="168" height="32" rx="3" fill="#0d1117" stroke="#8b949e" stroke-opacity="0.4"/>
+      <text x="560" y="154" fill="#8b949e" font-size="11" text-anchor="middle">Instrument Definition</text>
+      <!-- client label -->
+      <rect x="280" y="160" width="160" height="38" rx="4" fill="#0d1117" stroke="#00c896" stroke-width="1.5"/>
+      <text x="360" y="174" fill="#00c896" font-size="11" text-anchor="middle" font-weight="600">Client System</text>
+      <text x="360" y="190" fill="#8b949e" font-size="10" text-anchor="middle">Subscribes A + B simultaneously</text>
+      <!-- arrows -->
+      <line x1="220" y1="65" x2="256" y2="65" stroke="#f5c518" stroke-opacity="0.5" stroke-width="1" marker-end="url(#arr)"/>
+      <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#f5c518" opacity="0.5"/></marker></defs>
+    </svg>
+  </div>
+
+  <h3>Synchronisation Procedure (Simplified)</h3>
+  <ol style="padding-left:20px;line-height:2;">
+    <li>Join Incremental stream → queue all messages</li>
+    <li>Join Instrument Definition stream → build instrument table (wait for all <code>TotNoRelatedSym</code>)</li>
+    <li>Join Snapshot Recovery → build books per instrument (wait for all <code>TotNumReports</code>)</li>
+    <li>Apply queued incremental messages (discard those ≤ <code>LastMsgSeqNumProcessed</code> from snapshots)</li>
+    <li>Unjoin Snapshot and Instrument Definition streams</li>
+    <li>Continue normal processing from Incremental only</li>
+  </ol>
+
+  <div class="callout callout-warn">
+    <span class="icon">⚠️</span> <strong>RptSeq per instrument:</strong> The field <code>RptSeq</code> (tag 83) is a sequence number <em>per instrument</em> (not per packet). Gaps in RptSeq for a specific SecurityID indicate lost data for that instrument even if no packet-level gaps occurred. This is the preferred gap-detection mechanism when monitoring a subset of instruments.
+  </div>
+
+  <div class="callout callout-warn">
+    <span class="icon">⚠️</span> <strong>Not in Binary UMDF:</strong> Settlement prices (tag 269=6), Open Interest (tag 269=C), and Notional Volume (tag 269=B) were added in v1.8.0 as dedicated <code>SettlementPrice</code> (template 28) and <code>OpenInterest</code> (template 29) messages. These were previously unavailable in Binary UMDF (only in legacy FIX/FAST). Confirm historical availability with engineering.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     §3  INSTRUMENT REFERENCE DATA
+════════════════════════════════════════════════════════════════════ -->
+<section id="refdata">
+  <h2><span class="section-num">§3</span> Instrument Reference Data</h2>
+  <div class="section-divider"></div>
+
+  <p>Instrument definitions arrive via the <code>SecurityDefinition</code> message on the <strong>Instrument Definition Stream</strong>. One message per instrument; packet may contain multiple. Updates (e.g. new/expired instruments intraday) come via the Incremental Stream.</p>
+
+  <div class="callout callout-info">
+    <span class="icon">ℹ️</span> The Instrument Definition Stream is not restarted daily — it is brought down only between Fri 22:00 and Sun 12:00 local time (São Paulo). Subscribers may stay connected through the week.
+  </div>
+
+  <h3>Key SecurityDefinition Fields (DRV Segment)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>FIX Tag</th><th>SBE Field Name</th><th>Type</th><th>Description</th><th>BMLL Mapping</th></tr></thead>
+      <tbody>
+        <tr><td>48</td><td><code>securityID</code></td><td>uint32</td><td>B3-assigned numeric instrument ID; unique per instrument, reused after expiry</td><td>→ <code>INSTRUMENT_ID</code> (feeds into BMLL minting)</td></tr>
+        <tr><td>55</td><td><code>symbol</code></td><td>char[12]</td><td>Human-readable ticker (e.g. DOLH24)</td><td>→ <code>TICKER</code></td></tr>
+        <tr><td>207</td><td><code>securityExchange</code></td><td>char[4]</td><td>Always <code>BVMF</code> for DRV segment</td><td>→ <code>MIC</code> = <code>BVMF</code></td></tr>
+        <tr><td>762</td><td><code>securitySubType</code></td><td>char[6]</td><td>Sub-type: <code>STRATEGY</code>=90, <code>FINANCIAL_ROLLOVER</code>=140, <code>AGRICULTURAL_ROLLOVER</code>=141. Used to distinguish outright vs strategy</td><td>→ <code>IS_STRATEGY</code></td></tr>
+        <tr><td>461</td><td><code>cFICode</code></td><td>char[6]</td><td>ISO 10962 CFI code</td><td>→ <code>CFI</code>; used to derive <code>INSTRUMENT_TYPE</code> = <code>Futures</code></td></tr>
+        <tr><td>1151</td><td><code>securityGroup</code></td><td>char[3]</td><td>Group code (e.g. DOL, IND). Key for market state tracking. Note: codes may repeat across exchanges — must use <code>securityGroup + securityExchange</code> as composite key.</td><td>→ <code>PRODUCT_CODE</code></td></tr>
+        <tr><td>200</td><td><code>maturityMonthYear</code></td><td>char[6]</td><td>YYYYMM format expiry month</td><td>→ <code>MATURITY_MONTH_YEAR</code></td></tr>
+        <tr><td>541</td><td><code>maturityDate</code></td><td>date</td><td>Exact expiry/last trading date</td><td>→ <code>MATURITY_DATE</code> / <code>EXPIRY_DATE</code></td></tr>
+        <tr><td>15</td><td><code>currency</code></td><td>char[3]</td><td>Contract currency (BRL, USD)</td><td>→ <code>CURRENCY_CODE</code></td></tr>
+        <tr><td>969</td><td><code>minPriceIncrement</code></td><td>Price</td><td>Minimum tick size</td><td>→ Reference data; not a BMLL schema field directly but important for validation</td></tr>
+        <tr><td>562</td><td><code>minTradeVol</code></td><td>Quantity</td><td>Minimum lot size</td><td>→ Reference / validation</td></tr>
+        <tr><td>35561</td><td><code>minCrossQty</code></td><td>Quantity (optional)</td><td>Minimum quantity for cross orders</td><td>→ ⚠️ Engineering: confirm if needed</td></tr>
+        <tr><td>393</td><td><code>totNoRelatedSym</code></td><td>uint16</td><td>Total SecurityDefinition messages in current loop; used for loop completion detection</td><td>Feed processing control — not a data field</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-warn">
+    <span class="icon">⚠️</span> <strong>SecurityID reuse:</strong> B3's <code>securityID</code> (tag 48) may be reused after an instrument expires and a new instrument is listed with the same product code and expiry cycle in a future contract roll. <strong>Do not treat securityID as a permanent unique identifier across time.</strong> The BMLL <code>LISTING_ID</code> must incorporate date context to handle this.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     §4  SYMBOLOGY
+════════════════════════════════════════════════════════════════════ -->
+<section id="symbology">
+  <h2><span class="section-num">§4</span> Symbology</h2>
+  <div class="section-divider"></div>
+
+  <p>B3 futures instrument symbols follow a structured alphanumeric convention. Understanding this is important for populating <code>PRODUCT_CODE</code>, <code>CONTRACT_TYPE</code>, and <code>MATURITY_MONTH_YEAR</code> correctly, and for distinguishing outright contracts from strategies.</p>
+
+  <h3>Outright Futures Symbol Format</h3>
+  <p>Format: <code>[ProductCode][ExpiryMonth][ExpiryYear]</code></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 580 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:580px;">
+      <rect x="0" y="0" width="580" height="120" fill="#161b22" rx="6"/>
+      <!-- DOLH24 decomposed -->
+      <rect x="40" y="30" width="80" height="40" rx="3" fill="#1c2330" stroke="#f5c518" stroke-opacity="0.6"/>
+      <text x="80" y="54" fill="#f5c518" font-size="18" text-anchor="middle" font-weight="700" font-family="'JetBrains Mono',monospace">DOL</text>
+      <rect x="140" y="30" width="44" height="40" rx="3" fill="#1c2330" stroke="#00c896" stroke-opacity="0.6"/>
+      <text x="162" y="54" fill="#00c896" font-size="18" text-anchor="middle" font-weight="700" font-family="'JetBrains Mono',monospace">H</text>
+      <rect x="204" y="30" width="56" height="40" rx="3" fill="#1c2330" stroke="#58a6ff" stroke-opacity="0.6"/>
+      <text x="232" y="54" fill="#58a6ff" font-size="18" text-anchor="middle" font-weight="700" font-family="'JetBrains Mono',monospace">24</text>
+      <!-- labels -->
+      <text x="80" y="88" fill="#f5c518" font-size="10" text-anchor="middle">Product Code</text>
+      <text x="80" y="100" fill="#8b949e" font-size="10" text-anchor="middle">USD/BRL Futures</text>
+      <text x="162" y="88" fill="#00c896" font-size="10" text-anchor="middle">Month</text>
+      <text x="162" y="100" fill="#8b949e" font-size="10" text-anchor="middle">H = March</text>
+      <text x="232" y="88" fill="#58a6ff" font-size="10" text-anchor="middle">Year (2-digit)</text>
+      <text x="232" y="100" fill="#8b949e" font-size="10" text-anchor="middle">2024</text>
+      <!-- full symbol -->
+      <text x="400" y="45" fill="#c9d1d9" font-size="12" text-anchor="middle">Full symbol:</text>
+      <text x="400" y="65" fill="#f0f6fc" font-size="22" text-anchor="middle" font-weight="700" font-family="'JetBrains Mono',monospace">DOLH24</text>
+      <text x="400" y="82" fill="#8b949e" font-size="10" text-anchor="middle">USD/BRL March 2024 Future</text>
+    </svg>
+  </div>
+
+  <h3>Expiry Month Codes (Standard CME/B3 Convention)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Code</th><th>Month</th><th>Code</th><th>Month</th><th>Code</th><th>Month</th></tr></thead>
+      <tbody>
+        <tr><td><code>F</code></td><td>January</td><td><td><code>N</code></td><td>July</td></tr>
+        <tr><td><code>G</code></td><td>February</td><td></td><td><code>Q</code></td><td>August</td></tr>
+        <tr><td><code>H</code></td><td>March</td><td></td><td><code>U</code></td><td>September</td></tr>
+        <tr><td><code>J</code></td><td>April</td><td></td><td><code>V</code></td><td>October</td></tr>
+        <tr><td><code>K</code></td><td>May</td><td></td><td><code>X</code></td><td>November</td></tr>
+        <tr><td><code>M</code></td><td>June</td><td></td><td><code>Z</code></td><td>December</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Key Product Codes (DRV)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Product Code</th><th>Description</th><th>Underlying</th><th>Currency</th></tr></thead>
+      <tbody>
+        <tr><td><code>DOL</code></td><td>USD/BRL FX Futures</td><td>USD/BRL spot rate</td><td>BRL</td></tr>
+        <tr><td><code>WDO</code></td><td>Mini USD/BRL FX Futures</td><td>USD/BRL spot rate</td><td>BRL</td></tr>
+        <tr><td><code>DI1</code></td><td>1-Day Interbank Deposit Futures</td><td>CDI overnight rate</td><td>BRL</td></tr>
+        <tr><td><code>DDI</code></td><td>DDI Interbank Spread Futures</td><td>US LIBOR vs CDI spread</td><td>BRL</td></tr>
+        <tr><td><code>IND</code></td><td>Ibovespa Index Futures</td><td>IBOV index</td><td>BRL</td></tr>
+        <tr><td><code>WIN</code></td><td>Mini Ibovespa Futures</td><td>IBOV index</td><td>BRL</td></tr>
+        <tr><td><code>BGI</code></td><td>Hydrous Ethanol Futures</td><td>Hydrous ethanol prices</td><td>BRL</td></tr>
+        <tr><td><code>CCM</code></td><td>Corn Futures</td><td>Corn commodity price</td><td>BRL/USD</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Strategy &amp; Option-Spread Symbol Identification</h3>
+  <p>Instruments on the options channels that are <em>not</em> true options (Rollovers, Strategies) are identified via <code>securitySubType</code> (tag 762). The <code>strikePrice</code> field (tag 202) will be absent or zero for these.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>securitySubType Value</th><th>Name</th><th>IS_STRATEGY</th><th>Strike Price</th></tr></thead>
+      <tbody>
+        <tr><td><code>90</code></td><td>STRATEGY</td><td>true</td><td>Zero / null</td></tr>
+        <tr><td><code>140</code></td><td>FINANCIAL_ROLLOVER</td><td>true</td><td>Zero / null</td></tr>
+        <tr><td><code>141</code></td><td>AGRICULTURAL_ROLLOVER</td><td>true</td><td>Zero / null</td></tr>
+        <tr><td>absent / 0</td><td>Outright contract</td><td>false</td><td>N/A (futures); present for options</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     §5  FIELD CATALOGUE
+════════════════════════════════════════════════════════════════════ -->
+<section id="catalogue">
+  <h2><span class="section-num">§5</span> Field Catalogue — BMLL Mapping</h2>
+  <div class="section-divider"></div>
+
+  <p>This catalogue maps B3 Binary UMDF source fields to BMLL output schema fields. All message-level mappings reference the SBE template specification (v2.2.0.1 XML) and the Messaging Specification Guidelines v1.8.0.2.</p>
+
+  <h3>5.1 Common / Identity Fields</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>BMLL Field</th><th>Source Message(s)</th><th>Source Field (Tag)</th><th>Mapping Logic</th><th>Confidence</th></tr></thead>
+      <tbody>
+        <tr><td><code>MIC</code></td><td>All messages</td><td><code>securityExchange</code> (207)</td><td>Always <code>BVMF</code> for DRV segment instruments</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>TICKER</code></td><td>SecurityDefinition</td><td><code>symbol</code> (55)</td><td>Direct copy. Null-padded fixed-length string in SBE — trim nulls.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>LISTING_ID</code></td><td>—</td><td>BMLL-minted</td><td>Generated by BMLL from MIC + securityID + date. ⚠️ securityID may be reused after expiry; minting logic must be time-scoped.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>INSTRUMENT_ID</code></td><td>SecurityDefinition</td><td><code>securityID</code> (48)</td><td>Feeds into BMLL minting. Not directly used as BMLL InstrumentId.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>PRODUCT_CODE</code></td><td>SecurityDefinition</td><td><code>securityGroup</code> (1151)</td><td>Product family code (e.g. DOL, IND). ℹ️ Must use <code>securityGroup + securityExchange (207)</code> as composite key — group codes may repeat across exchanges per spec §13.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>CONTRACT_TYPE</code></td><td>SecurityDefinition</td><td><code>securitySubType</code> (762), <code>cFICode</code> (461)</td><td><code>STRATEGY</code>(90)/<code>FINANCIAL_ROLLOVER</code>(140)/<code>AGRICULTURAL_ROLLOVER</code>(141) → <code>Spread</code>; CFI F* → <code>Outright</code>; ⚠️ Full CONTRACT_TYPE enum coverage requires engineering confirmation</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>MATURITY_MONTH_YEAR</code></td><td>SecurityDefinition</td><td><code>maturityMonthYear</code> (200)</td><td>Already in YYYYMM format per FIX standard</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>CURRENCY_CODE</code></td><td>SecurityDefinition</td><td><code>currency</code> (15)</td><td>ISO 4217 3-char currency. BRL most common; USD for some FX futures</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>CFI</code></td><td>SecurityDefinition</td><td><code>cFICode</code> (461)</td><td>Direct copy. ISO 10962 6-char code. F* = Futures, K* = Options on Futures</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>INSTRUMENT_TYPE</code></td><td>SecurityDefinition</td><td><code>cFICode</code> (461)</td><td>All CFI codes on DRV segment → <code>Futures</code> (BMLL taxonomy). Do not use "Derivatives".</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>IS_STRATEGY</code></td><td>SecurityDefinition</td><td><code>securitySubType</code> (762)</td><td>Values 90, 140, 141 → <code>true</code>; otherwise <code>false</code></td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>EXPIRY_DATE</code></td><td>SecurityDefinition</td><td><code>maturityDate</code> (541)</td><td>Last trading date of the future. SBE date encoded as days since epoch (uint16 × 86400s to convert)</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>MATURITY_DATE</code></td><td>SecurityDefinition</td><td><code>maturityDate</code> (541)</td><td>Same source as EXPIRY_DATE for futures</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>DESCRIPTION</code></td><td>SecurityDefinition</td><td><code>securityDesc</code> (107)</td><td>Free text description from instrument definition</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>ISIN</code></td><td>SecurityDefinition</td><td><code>iSIN</code></td><td>⚠️ Availability on Binary UMDF DRV segment requires confirmation. May only be available via legacy FIX/FAST or B3 reference data files.</td><td><span class="conf conf-low">LOW</span></td></tr>
+        <tr><td><code>MARKET_DATA_LEVEL</code></td><td>—</td><td>Constant</td><td><code>L3</code> — Binary UMDF provides MBO (Market By Order) = L3. MBP/TOB are not available on this feed.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5.2 Timestamp Fields</h3>
+  <div class="callout callout-info">
+    <span class="icon">ℹ️</span> <strong>Timestamp encoding:</strong> All timestamps in Binary UMDF are UTC nanoseconds since Unix epoch (1970-01-01), encoded as uint64. The <code>SendingTime</code> in the Packet Header has microsecond-level precision. Message-level timestamps (e.g. <code>mDEntryTimestamp</code>) have nanosecond precision where specified. <strong>São Paulo observes DST (Horário de Brasília = UTC-3 in summer, UTC-2 in winter).</strong>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>BMLL Field</th><th>Source Field</th><th>Tag</th><th>Format</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>EVENT_TIMESTAMP</code> (L1/L2)</td><td><code>mDEntryTimestamp</code></td><td>37033</td><td>UTC nanoseconds (uint64)</td><td>Time of the market data entry; divide by 1000 for microsecond precision</td></tr>
+        <tr><td><code>TRADE_TIMESTAMP</code></td><td><code>mDEntryTimestamp</code></td><td>37033</td><td>UTC nanoseconds (uint64)</td><td>Date and time of trade</td></tr>
+        <tr><td><code>PUBLICATION_TIMESTAMP</code></td><td><code>aggressorTime</code></td><td>2445</td><td>UTC nanoseconds (uint64)</td><td>Timestamp of aggressive order resulting in match event. ⚠️ Confirm this is the correct source for publication timestamp vs a gateway-level timestamp.</td></tr>
+        <tr><td><code>LOCAL_TIMESTAMP</code></td><td>Derived from UTC + TZ offset</td><td>—</td><td>BMLL-derived</td><td>UTC timestamp + TZ_OFFSET for São Paulo (UTC-3/-2 DST-aware)</td></tr>
+        <tr><td><code>TZ_OFFSET</code></td><td>—</td><td>Constant / Calendar</td><td>±HHMM</td><td>São Paulo: -0300 (standard) / -0200 (DST). ⚠️ DST transition dates must be maintained.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5.3 Order Book Fields (L3 / MBO)</h3>
+  <p>B3 Binary UMDF is an exclusively <strong>MBO (Market By Order)</strong> feed. Each order entry in the book is individually tracked by position number (<code>mDEntryPositionNo</code>, tag 290), not by a stable persistent order ID. The field <code>secondaryOrderID</code> (tag 198) changes on every order modification or iceberg replenishment.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>BMLL L3 Field</th><th>Source Message</th><th>Source Field (Tag)</th><th>Mapping Logic</th><th>Confidence</th></tr></thead>
+      <tbody>
+        <tr><td><code>ORDER_ID</code></td><td>Order_MBO, DeleteOrder_MBO</td><td><code>secondaryOrderID</code> (198)</td><td>Exchange-generated order identifier. ⚠️ Changes on each modification and iceberg replenishment — this is NOT a stable lifecycle order ID. BMLL must treat each new secondaryOrderID as a new order entry.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>SIDE</code></td><td>Order_MBO, DeleteOrder_MBO</td><td><code>mDEntryType</code> (269)</td><td><code>0</code> (Bid) → <code>B</code>; <code>1</code> (Offer) → <code>A</code></td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>PRICE</code></td><td>Order_MBO</td><td><code>mDEntryPx</code> (270)</td><td>Decimal with exponent -4. Market orders have null price (<code>0x8000000000000000</code>) → store as NaN.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>SIZE</code></td><td>Order_MBO, DeleteOrder_MBO</td><td><code>mDEntrySize</code> (271)</td><td>Quantity. Optional on DeleteOrder_MBO. Negative for cancellations.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>LOB_ACTION</code></td><td>Order_MBO, DeleteOrder_MBO, MassDeleteOrders_MBO</td><td><code>mDUpdateAction</code> (279)</td><td><code>0</code>=NEW→INSERT; <code>1</code>=CHANGE→MODIFY; <code>2</code>=DELETE→REMOVE; <code>3</code>=DELETE_THRU→REMOVE (all); <code>4</code>=DELETE_FROM→REMOVE (range)</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>PRICE_LEVEL</code></td><td>Order_MBO</td><td><code>mDEntryPositionNo</code> (290)</td><td>Position in book starting at 1. Used as proxy for price level. ⚠️ Position shifts on insert/delete — receivers must manage this logic.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>PARTICIPANT_ID</code> (buy/sell)</td><td>Order_MBO, SnapshotRefresh_Orders</td><td><code>enteringFirm</code> (37501)</td><td>Broker firm identifier. Optional. Replaces MDEntryBuyer/MDEntrySeller in this feed.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>INSERT_TIMESTAMP</code></td><td>Order_MBO</td><td><code>mDInsertTimestamp</code> (37034)</td><td>Time order was inserted (or re-inserted) into book. Distinct from original order entry time.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>END_OF_EVENT</code></td><td>All incremental</td><td><code>matchEventIndicator</code> (37035) bit 7</td><td>Bit 7 set → last message in the current trading event. Used for event grouping and EndOfEvent flag on L3 rows.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>FROM_IMPLIED</code></td><td>—</td><td>—</td><td>ℹ️ Binary UMDF does not expose an implied order flag at the order level. Implied orders on DRV (spread legs) are not separately tagged in MBO data. → <code>false</code> / <code>null</code> pending confirmation.</td><td><span class="conf conf-low">LOW</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5.4 Settlement Price Fields</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>BMLL Field</th><th>Source Message</th><th>Source Field</th><th>Notes</th><th>Confidence</th></tr></thead>
+      <tbody>
+        <tr><td><code>SETTLEMENT_PRICE</code></td><td>SettlementPrice (template 28)</td><td><code>mDEntryPx</code> (270)</td><td>Added in v1.8.0. Previously not available in Binary UMDF. ⚠️ Confirm data history availability.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>EXCHANGE_SETTLEMENT_PRICE_TYPE</code></td><td>SettlementPrice</td><td><code>openCloseSettlFlag</code> (286) + <code>settlPriceType</code> (731)</td><td>Combination of dailiness flag and type (FINAL / THEORETICAL / UPDATED). See settlement price nuances §8.</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>BMLL_SETTLEMENT_PRICE_TYPE</code></td><td>SettlementPrice</td><td>Derived from openCloseSettlFlag + settlPriceType</td><td>Normalise to: <code>Preliminary - Estimated</code>, <code>Preliminary - Actual</code>, <code>Final - Estimated</code>, <code>Final - Actual</code></td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>BMLL_SETTLEMENT_PRICE_TIMELINESS</code></td><td>SettlementPrice</td><td><code>openCloseSettlFlag</code> (286)</td><td>Daily vs Intraday flag</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>OPEN_INTEREST</code></td><td>OpenInterest (template 29)</td><td><code>mDEntrySize</code> (271)</td><td>Total open contracts. Added in v1.8.0. ⚠️ Confirm history availability.</td><td><span class="conf conf-high">HIGH</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     §6  MARKET STATES
+════════════════════════════════════════════════════════════════════ -->
+<section id="mktstate">
+  <h2><span class="section-num">§6</span> Market State Mapping</h2>
+  <div class="section-divider"></div>
+
+  <p>B3 uses a <strong>two-level state model</strong>: group-level phase (SecurityGroupPhase) and instrument-level state (SecurityStatus). By default instruments follow their group's phase; a SecurityStatus message with <code>securityTradingEvent=101</code> indicates an instrument has separated from its group.</p>
+
+  <h3>Instrument States (tag 326 — SecurityTradingStatus)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>B3 Value</th><th>B3 Name</th><th>BMLL MarketState</th><th>Confidence</th><th>Reasoning</th></tr></thead>
+      <tbody>
+        <tr><td><code>2</code></td><td>PAUSE (Trading Halt)</td><td><code>HALTED</code></td><td><span class="conf conf-high">HIGH</span></td><td>Orders remain in book; no new matching. Surveillance-triggered unscheduled halt.</td></tr>
+        <tr><td><code>4</code></td><td>CLOSE (No-Open)</td><td><code>CLOSED</code></td><td><span class="conf conf-high">HIGH</span></td><td>No order entry/modification/cancel. Market closed.</td></tr>
+        <tr><td><code>17</code></td><td>OPEN (Ready to Trade)</td><td><code>CONTINUOUS_TRADING</code></td><td><span class="conf conf-high">HIGH</span></td><td>Orders match immediately. Main trading session.</td></tr>
+        <tr><td><code>18</code></td><td>FORBIDDEN (Not Available)</td><td><code>HALTED</code></td><td><span class="conf conf-medium">MEDIUM</span></td><td>Surveillance-triggered, no entry capability. Similar to PAUSE but different B3 semantics. ⚠️ May also map to CLOSED if it occurs end-of-day — context needed.</td></tr>
+        <tr><td><code>21</code></td><td>PRE-OPEN (RESERVED)</td><td><code>OPENING_AUCTION</code></td><td><span class="conf conf-high">HIGH</span></td><td>Orders accepted, no immediate execution; auction algorithm determines theoretical opening price. Ends with trades at auction uncrossing.</td></tr>
+        <tr><td><code>101</code></td><td>FINAL_CLOSING_CALL</td><td><code>CLOSING_AUCTION</code></td><td><span class="conf conf-high">HIGH</span></td><td>Final closing call for equities. On DRV, MOC orders triggered. Behaviorally a closing auction.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Group Phases (tag 625 — TradingSessionSubID)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>B3 Value</th><th>B3 Name</th><th>BMLL MarketState</th><th>Confidence</th></tr></thead>
+      <tbody>
+        <tr><td><code>2</code></td><td>PAUSE</td><td><code>HALTED</code></td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>4</code></td><td>CLOSE</td><td><code>CLOSED</code></td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>17</code></td><td>OPEN</td><td><code>CONTINUOUS_TRADING</code></td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>18</code></td><td>FORBIDDEN (Pre-Close)</td><td><code>HALTED</code></td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>21</code></td><td>RESERVED (Pre-Open)</td><td><code>OPENING_AUCTION</code></td><td><span class="conf conf-high">HIGH</span></td></tr>
+        <tr><td><code>101</code></td><td>FINAL_CLOSING_CALL</td><td><code>CLOSING_AUCTION</code></td><td><span class="conf conf-high">HIGH</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-info">
+    <span class="icon">ℹ️</span> <strong>State derivation rule:</strong> When an instrument's state rejoins the group phase (<code>securityTradingEvent=102</code>), it is safe to infer the group phase from the current instrument state (tag 326). The BMLL Market State output must reflect the more restrictive of group vs instrument state when they diverge.
+  </div>
+
+  <div class="callout callout-warn">
+    <span class="icon">⚠️</span> <strong>Statistics reset:</strong> On receipt of <code>SecurityStatus</code> with <code>securityTradingEvent=4</code> (TRADING_SESSION_CHANGE), client systems must reset: LastTradePrice, ExecutionStatistics (VWAP/TradeVolume/NumberOfTrades), OpeningPrice, TheoreticalOpeningPrice, HighPrice, LowPrice. This is the end-of-day statistics reset signal.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     §7  TRADE CLASSIFICATION
+════════════════════════════════════════════════════════════════════ -->
+<section id="trades">
+  <h2><span class="section-num">§7</span> Trade Classification</h2>
+  <div class="section-divider"></div>
+
+  <p>B3 uses a two-field classification system for trades: <code>tradeCondition</code> (tag 277, bitfield) and <code>trdSubType</code> (tag 829, enum). Together they determine <code>BMLL_TRADE_TYPE</code> and <code>PRINTABLE</code>.</p>
+
+  <h3>TradeCondition Bitfield (tag 277)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Bit</th><th>Name</th><th>FIX Equiv</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>OpeningPrice</td><td>R</td><td>One of the trades forming the opening trade event (first trade in session)</td></tr>
+        <tr><td>1</td><td>Crossed</td><td>X</td><td>Trade from a cross order</td></tr>
+        <tr><td>2</td><td>LastTradeAtTheSamePrice</td><td>L</td><td>Price equals last trade price</td></tr>
+        <tr><td>3</td><td>OutOfSequence</td><td>S</td><td>⚠️ Price MUST NOT update last trade price. Exclude from last price logic.</td></tr>
+        <tr><td>6</td><td>TradeOnBehalf</td><td>2</td><td>Marketplace entered trade</td></tr>
+        <tr><td>13</td><td>RegularTrade</td><td>—</td><td>1=Regular; 0=special (see TrdSubType). This is the primary on/off-book flag.</td></tr>
+        <tr><td>14</td><td>BlockTrade</td><td>—</td><td>1=Block Trade (see TrdSubType for block sub-type)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>TrdSubType Enum (tag 829)</h3>
+  <p>Only populated when <code>RegularTrade</code> bit (13) = 0.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Value</th><th>Name</th><th>Block?</th><th>BMLL_TRADE_TYPE</th><th>PRINTABLE</th><th>Confidence</th></tr></thead>
+      <tbody>
+        <tr><td><code>101</code></td><td>MULTI_ASSET_TRADE</td><td>No</td><td><code>ON_BOOK</code> ⚠️ or separate type?</td><td>true</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>102</code></td><td>LEG_TRADE</td><td>No</td><td><code>ON_BOOK</code></td><td>⚠️ false — may double-count with strategy-level trade. Confirm PRINTABLE logic.</td><td><span class="conf conf-low">LOW</span></td></tr>
+        <tr><td><code>103</code></td><td>MIDPOINT_TRADE</td><td>Yes (Block)</td><td><code>DARK</code></td><td>true</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>104</code></td><td>BLOCK_BOOK_TRADE</td><td>Yes (Block)</td><td><code>OFF_BOOK_ON_EXCHANGE</code></td><td>true</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>105</code></td><td>RFQ_TRADE</td><td>Yes (Block)</td><td><code>OFF_BOOK_ON_EXCHANGE</code></td><td>true</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>106</code></td><td>RLP_TRADE</td><td>No</td><td><code>ON_BOOK</code></td><td>true</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>107</code></td><td>TAC_TRADE</td><td>No</td><td><code>TRADE_AT_CLOSE</code></td><td>true</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>108</code></td><td>TAA_TRADE</td><td>No</td><td><code>TRADE_AT_AVERAGE</code></td><td>true</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td><code>109</code></td><td>SWEEP_TRADE</td><td>No</td><td><code>ON_BOOK</code> (may combine with Crossed)</td><td>true</td><td><span class="conf conf-medium">MEDIUM</span></td></tr>
+        <tr><td>absent</td><td>Regular Trade (bit 13=1)</td><td>No</td><td><code>ON_BOOK</code></td><td>true</td><td><span class="conf conf-high">HIGH</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-warn">
+    <span class="icon">⚠️</span> <strong>Auction trades (UNCROSSING):</strong> Trades generated at the end of an auction (Pre-Open → Open transition) do not generate an ExecutionSummary message. They appear as Trade messages during state <code>PRE-OPEN</code> (21). In BMLL these must be classified as <code>UNCROSSING</code>, not <code>ON_BOOK</code>.
+  </div>
+
+  <div class="callout callout-warn">
+    <span class="icon">⚠️</span> <strong>OutOfSequence trades:</strong> When bit 3 (<code>OutOfSequence</code>) is set in TradeCondition, the trade price must NOT update last trade price. Filter these when computing VWAP, last price, or price series.
+  </div>
+
+  <h3>Trade Message Types</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>SBE Message</th><th>Template ID</th><th>Description</th><th>BMLL Treatment</th></tr></thead>
+      <tbody>
+        <tr><td>ExecutionSummary</td><td>55</td><td>Event-level summary: aggressor side, fill qty, worst price, traded hidden qty, cancelled qty. First message in an event.</td><td>→ TradeSummary fields. Note: NOT sent for auction-end trades, manual trades, or Termo trades.</td></tr>
+        <tr><td>Trade</td><td>53</td><td>Individual trade fill</td><td>→ Main trade row</td></tr>
+        <tr><td>ForwardTrade</td><td>—</td><td>Trade for Termo (forward) instruments — adds interestRate and sellerDays fields</td><td>→ Trade row; populate forward-specific fields</td></tr>
+        <tr><td>TradeBust</td><td>—</td><td>Trade cancellation by Market Supervision. No prices resent unless all trades cancelled.</td><td>→ Cancellation row (SIZE negative, ModificationIndicator='C')</td></tr>
+        <tr><td>LastTradePrice</td><td>—</td><td>Statistical; mainly in snapshot. Rarely in incremental (catastrophic failure only).</td><td>→ Not a trade row; used to populate statistics only</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     §8  EXCHANGE NUANCES
+════════════════════════════════════════════════════════════════════ -->
+<section id="nuances">
+  <h2><span class="section-num">§8</span> Exchange Nuances</h2>
+  <div class="section-divider"></div>
+
+  <h3>8.1 Iceberg Orders</h3>
+  <p>B3 supports Disclosed Quantity (iceberg) orders. The displayed portion (MaxFloor, tag 111) is visible in the order book. When the displayed quantity is fully filled:</p>
+  <ul>
+    <li>The order is replenished at the end of the price level queue (lowest priority), preserving hidden nature</li>
+    <li>A new <code>secondaryOrderID</code> (tag 198) is issued on replenishment — the old ID is deleted and a new one inserted</li>
+    <li><code>tradedHiddenQty</code> in ExecutionSummary captures total hidden quantity matched in the event</li>
+  </ul>
+  <div class="callout callout-warn">
+    <span class="icon">⚠️</span> BMLL L3 processing: treat a new <code>secondaryOrderID</code> as a new order (DELETE + INSERT pair). Do not attempt to track iceberg replenishment as a MODIFY.
+  </div>
+
+  <h3>8.2 Order Modification and Priority Loss</h3>
+  <p>In B3 MBO data, order modifications that cause priority loss (price change or quantity increase) appear as a DELETE of the old <code>secondaryOrderID</code> followed by a NEW insertion with a new <code>secondaryOrderID</code>. Only modifications that do <em>not</em> cause priority loss (quantity decrease) appear as a CHANGE update to the same position.</p>
+
+  <h3>8.3 Spread / Strategy Trade Handling (LEG_TRADE)</h3>
+  <p>When a strategy (spread) trade occurs, B3 publishes:</p>
+  <ol style="padding-left:20px;margin-bottom:12px;">
+    <li>A Trade on the strategy instrument (with <code>trdSubType=102, LEG_TRADE</code>)</li>
+    <li>Separate Trades on each underlying leg instrument</li>
+  </ol>
+  <div class="callout callout-warn">
+    <span class="icon">⚠️</span> <strong>Double-counting risk:</strong> To avoid double-counting volume, set <code>PRINTABLE=false</code> on leg trades where the strategy-level trade has already been counted. The exact PRINTABLE logic for leg trades requires engineering confirmation — the spec defines them as non-regular but does not specify a definitive double-count flag.
+  </div>
+
+  <h3>8.4 Multi-Asset Trades (MULTI_ASSET_TRADE)</h3>
+  <p><code>trdSubType=101</code> (MULTI_ASSET_TRADE) indicates a trade in the cash instrument originated from a forward + cash agreement (Termo Vista). It is a non-regular trade but is NOT a block trade. Associated with a forward Termo contract trade on a separate instrument.</p>
+
+  <h3>8.5 Settlement Price Precision</h3>
+  <p>Closing prices in Binary UMDF use a different decimal precision from other prices:</p>
+  <ul>
+    <li>Most prices: exponent = -4 (4 decimal places)</li>
+    <li><code>ClosingPrice.mDEntryPx</code> and <code>netChgPrevDay</code>: exponent = -8 (8 decimal places) — these can be adjusted for corporate events and may require higher precision</li>
+  </ul>
+
+  <h3>8.6 Mass Delete Operations</h3>
+  <p>Two bulk order book operations require special L3 processing:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Operation</th><th>MDUpdateAction</th><th>MDEntryPositionNo</th><th>Effect</th><th>BMLL L3 Treatment</th></tr></thead>
+      <tbody>
+        <tr><td>DELETE_FROM (4)</td><td>4</td><td>N</td><td>Delete all positions from 1 up to and including N (book swept by aggressive order)</td><td>Generate individual REMOVE rows for all positions 1..N on the specified side</td></tr>
+        <tr><td>DELETE_THRU (3)</td><td>3</td><td>Always 1</td><td>Delete all orders on the specified side (full side clear)</td><td>Generate individual REMOVE rows for all positions on the specified side</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>8.7 MatchEventIndicator and Event Grouping</h3>
+  <p>All incremental messages carry <code>matchEventIndicator</code> (tag 37035), a bitfield with two primary flags:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Bit</th><th>Name</th><th>Decimal Value (standalone)</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>5</td><td>RecoveryMsg</td><td>32</td><td>Message is a book replay / recovery. Only set on Order messages.</td></tr>
+        <tr><td>7</td><td>EndOfEvent</td><td>128</td><td>Last message in the current trading event. Used to populate BMLL <code>END_OF_TRADE_SUMMARY</code> / <code>EndOfEvent</code>.</td></tr>
+        <tr><td>5+7</td><td>Both</td><td>160</td><td>Last recovery message in event</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>8.8 Self-Trade Prevention (STP)</h3>
+  <p>B3 supports STP at customer level. When triggered, the cancelled order quantity appears in <code>cxlQty</code> of the ExecutionSummary. The cancellation itself is published as a DeleteOrder_MBO <em>before</em> the Trade message in the event sequence. Three STP modes: cancel aggressor (default), cancel resting, cancel both.</p>
+
+  <h3>8.9 Stop Orders</h3>
+  <p>Stop order entry, election, and cancellation of unelected stop orders do NOT generate market data messages. Only the triggered trade (after election) generates market data. Multiple stop orders elected in a single matching event all belong to one ExecutionSummary event with one combined summary and multiple Trade messages.</p>
+
+  <h3>8.10 Trading Hours / DST</h3>
+  <p>PUMA DRV is not restarted daily. The platform runs continuously from Sunday 12:00 to Friday 22:00 São Paulo local time. B3 recommends subscribers disconnect during weekends unless participating in mock tests. <strong>São Paulo observes DST (Horário de Brasília):</strong> UTC-3 in winter, UTC-2 in summer. Transition dates differ from US/European DST calendars.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     §9  ORDER BOOK MODEL
+════════════════════════════════════════════════════════════════════ -->
+<section id="orderbook">
+  <h2><span class="section-num">§9</span> Order Book Model</h2>
+  <div class="section-divider"></div>
+
+  <h3>Position-Number Based MBO</h3>
+  <p>B3's order book is internally maintained by price-level and priority, but the <strong>market data diffusion uses position numbers</strong> (<code>mDEntryPositionNo</code>, tag 290) as the external representation. Position 1 = best price. Client systems MUST manage books using position numbers, not derived price levels.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 640 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:640px;">
+      <rect x="0" y="0" width="640" height="200" fill="#161b22" rx="6"/>
+      <!-- Bid side -->
+      <text x="140" y="22" fill="#f5c518" font-size="12" text-anchor="middle" font-weight="600">BID SIDE</text>
+      <rect x="20" y="30" width="240" height="155" rx="3" fill="#1c2330" stroke="#30363d"/>
+      <!-- headers -->
+      <text x="40" y="52" fill="#8b949e" font-size="10">POS</text>
+      <text x="90" y="52" fill="#8b949e" font-size="10">PRICE</text>
+      <text x="160" y="52" fill="#8b949e" font-size="10">SIZE</text>
+      <text x="215" y="52" fill="#8b949e" font-size="10">SORD_ID</text>
+      <line x1="20" y1="57" x2="260" y2="57" stroke="#30363d" stroke-width="1"/>
+      <!-- rows -->
+      <text x="40" y="74" fill="#00c896" font-size="11" font-family="'JetBrains Mono',monospace">1</text>
+      <text x="90" y="74" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">10.58</text>
+      <text x="160" y="74" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">5000</text>
+      <text x="215" y="74" fill="#8b949e" font-size="11" font-family="'JetBrains Mono',monospace">330</text>
+
+      <text x="40" y="96" fill="#00c896" font-size="11" font-family="'JetBrains Mono',monospace">2</text>
+      <text x="90" y="96" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">10.58</text>
+      <text x="160" y="96" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">4000</text>
+      <text x="215" y="96" fill="#8b949e" font-size="11" font-family="'JetBrains Mono',monospace">700</text>
+
+      <text x="40" y="118" fill="#00c896" font-size="11" font-family="'JetBrains Mono',monospace">3</text>
+      <text x="90" y="118" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">10.57</text>
+      <text x="160" y="118" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">3000</text>
+      <text x="215" y="118" fill="#8b949e" font-size="11" font-family="'JetBrains Mono',monospace">100</text>
+
+      <text x="40" y="140" fill="#00c896" font-size="11" font-family="'JetBrains Mono',monospace">4</text>
+      <text x="90" y="140" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">10.54</text>
+      <text x="160" y="140" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">4000</text>
+      <text x="215" y="140" fill="#8b949e" font-size="11" font-family="'JetBrains Mono',monospace">200</text>
+
+      <text x="130" y="172" fill="#8b949e" font-size="10" text-anchor="middle">Same price level → two separate entries</text>
+
+      <!-- Ask side -->
+      <text x="500" y="22" fill="#e05252" font-size="12" text-anchor="middle" font-weight="600">ASK SIDE</text>
+      <rect x="380" y="30" width="240" height="155" rx="3" fill="#1c2330" stroke="#30363d"/>
+      <text x="400" y="52" fill="#8b949e" font-size="10">POS</text>
+      <text x="450" y="52" fill="#8b949e" font-size="10">PRICE</text>
+      <text x="520" y="52" fill="#8b949e" font-size="10">SIZE</text>
+      <text x="575" y="52" fill="#8b949e" font-size="10">SORD_ID</text>
+      <line x1="380" y1="57" x2="620" y2="57" stroke="#30363d" stroke-width="1"/>
+
+      <text x="400" y="74" fill="#e05252" font-size="11" font-family="'JetBrains Mono',monospace">1</text>
+      <text x="450" y="74" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">11.03</text>
+      <text x="520" y="74" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">7000</text>
+      <text x="575" y="74" fill="#8b949e" font-size="11" font-family="'JetBrains Mono',monospace">800</text>
+
+      <text x="400" y="96" fill="#e05252" font-size="11" font-family="'JetBrains Mono',monospace">2</text>
+      <text x="450" y="96" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">11.03</text>
+      <text x="520" y="96" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">2000</text>
+      <text x="575" y="96" fill="#8b949e" font-size="11" font-family="'JetBrains Mono',monospace">320</text>
+
+      <text x="400" y="118" fill="#e05252" font-size="11" font-family="'JetBrains Mono',monospace">3</text>
+      <text x="450" y="118" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">11.05</text>
+      <text x="520" y="118" fill="#c9d1d9" font-size="11" font-family="'JetBrains Mono',monospace">1000</text>
+      <text x="575" y="118" fill="#8b949e" font-size="11" font-family="'JetBrains Mono',monospace">600</text>
+    </svg>
+  </div>
+
+  <p>Key rule: When an order is inserted at position N, all existing orders at positions N through the end of the book shift down by 1. B3 does NOT send change messages for the shifted orders. The receiver must infer the shift.</p>
+
+  <h3>Market Orders</h3>
+  <p>Market orders appear in the book with <code>mDEntryPx</code> = null (<code>0x8000000000000000</code>). They have position numbers and a <code>secondaryOrderID</code> but no price. In BMLL L3, store price as <code>NaN</code>.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     §10  TEST CASES
+════════════════════════════════════════════════════════════════════ -->
+<section id="testcases">
+  <h2><span class="section-num">§10</span> Test Cases</h2>
+  <div class="section-divider"></div>
+
+  <h3>Reference Data Tests</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Test</th><th>Expected</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr><td><code>REF-01</code></td><td>All DRV instruments have securitySubType correctly populating IS_STRATEGY</td><td>subType ∈ {90,140,141} → IS_STRATEGY=true; else false</td><td>SecurityDefinition tag 762</td></tr>
+        <tr><td><code>REF-02</code></td><td>All instruments have securityExchange = BVMF</td><td>MIC = BVMF on all DRV records</td><td>SecurityDefinition tag 207</td></tr>
+        <tr><td><code>REF-03</code></td><td>MATURITY_MONTH_YEAR is valid YYYYMM format</td><td>Regex: <code>\d{6}</code>; month 01-12</td><td>SecurityDefinition tag 200</td></tr>
+        <tr><td><code>REF-04</code></td><td>No INSTRUMENT_TYPE = "Derivatives"</td><td>All DRV instruments have INSTRUMENT_TYPE = "Futures"</td><td>Derived from CFI</td></tr>
+        <tr><td><code>REF-05</code></td><td>Strike price absent/zero for non-option futures</td><td>Outright futures: strikePrice null or 0; Options: strikePrice > 0</td><td>SecurityDefinition tag 202</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Market State Tests</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Test</th><th>Expected</th></tr></thead>
+      <tbody>
+        <tr><td><code>MS-01</code></td><td>No UNKNOWN MarketState in output</td><td>All B3 securityTradingStatus values are mapped</td></tr>
+        <tr><td><code>MS-02</code></td><td>No trades while MARKET_STATE = CLOSED</td><td>Zero Trade messages when instrument state = 4 (CLOSE)</td></tr>
+        <tr><td><code>MS-03</code></td><td>Auction-state trades classified as UNCROSSING</td><td>Trades during state 21 (PRE-OPEN) → BMLL_TRADE_TYPE = UNCROSSING</td></tr>
+        <tr><td><code>MS-04</code></td><td>Statistics reset on TRADING_SESSION_CHANGE event</td><td>securityTradingEvent=4 triggers reset of session stats fields</td></tr>
+        <tr><td><code>MS-05</code></td><td>Group vs instrument state handling</td><td>When instrument diverges from group (event=101), use instrument state; on rejoin (event=102), use group state</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Order Book (L3) Tests</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Test</th><th>Expected</th></tr></thead>
+      <tbody>
+        <tr><td><code>L3-01</code></td><td>No crossed book after each event</td><td>Best bid < Best ask at all times after EndOfEvent flag</td></tr>
+        <tr><td><code>L3-02</code></td><td>Position shift on INSERT</td><td>INSERT at position N shifts all positions ≥N down by 1 without explicit CHANGE messages</td></tr>
+        <tr><td><code>L3-03</code></td><td>DELETE_FROM bulk removal</td><td>MassDeleteOrders with action=4 at position N removes positions 1..N; position N+1 becomes new position 1</td></tr>
+        <tr><td><code>L3-04</code></td><td>DELETE_THRU full side clear</td><td>MassDeleteOrders with action=3 removes all positions on specified side</td></tr>
+        <tr><td><code>L3-05</code></td><td>Market orders stored with NaN price</td><td>Order_MBO with null mDEntryPx → PRICE = NaN in L3 output</td></tr>
+        <tr><td><code>L3-06</code></td><td>secondaryOrderID change on modification</td><td>Order modification (price/qty increase) = DELETE old + INSERT new secondaryOrderID, not a MODIFY</td></tr>
+        <tr><td><code>L3-07</code></td><td>Iceberg replenishment as new order</td><td>Replenishment generates DELETE of old secondaryOrderID + INSERT of new one at end of queue</td></tr>
+        <tr><td><code>L3-08</code></td><td>RecoveryMsg flag handling</td><td>Order messages with matchEventIndicator bit 5 set are book recovery messages — applied to book but flagged; do not treat as new live events</td></tr>
+        <tr><td><code>L3-09</code></td><td>EmptyBook before channel reset recovery</td><td>After ChannelReset, book is cleared; EmptyBook message per instrument precedes Order_MBO replay</td></tr>
+        <tr><td><code>L3-10</code></td><td>RptSeq gap detection per instrument</td><td>Gap in RptSeq (tag 83) for a SecurityID indicates missed data for that instrument</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Trade Tests</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Test</th><th>Expected</th></tr></thead>
+      <tbody>
+        <tr><td><code>TRD-01</code></td><td>No UNKNOWN BMLLTradeType</td><td>All B3 TradeCondition + TrdSubType combinations mapped</td></tr>
+        <tr><td><code>TRD-02</code></td><td>OutOfSequence trades excluded from last price</td><td>TradeCondition bit 3 set → PRINTABLE=false or excluded from last trade price computation</td></tr>
+        <tr><td><code>TRD-03</code></td><td>TradeBust produces negative SIZE</td><td>TradeBust message → SIZE < 0, ModificationIndicator='C'</td></tr>
+        <tr><td><code>TRD-04</code></td><td>Cancellation timestamp matches original trade</td><td>TradeBust timestamp matches Trade message for same TradeID</td></tr>
+        <tr><td><code>TRD-05</code></td><td>TradeSummary consistency</td><td>All trades within a TradeSummaryId have consistent price and aggressor side per ExecutionSummary</td></tr>
+        <tr><td><code>TRD-06</code></td><td>Settlement price decimal precision</td><td>ClosingPrice.mDEntryPx uses exponent -8, not -4. Validate no truncation.</td></tr>
+        <tr><td><code>TRD-07</code></td><td>Forward trade fields populated</td><td>ForwardTrade messages have mDEntryInterestRate and sellerDays populated</td></tr>
+        <tr><td><code>TRD-08</code></td><td>Price non-negative for outright futures</td><td>Outright futures trades: PRICE > 0. Price = 0 is a warning; negative is an error.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     §11  OPEN QUESTIONS
+════════════════════════════════════════════════════════════════════ -->
+<section id="openqs">
+  <h2><span class="section-num">§11</span> Open Questions</h2>
+  <div class="section-divider"></div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Priority</th><th>ID</th><th>Question</th></tr></thead>
+      <tbody>
+        <tr class="q-high"><td>HIGH</td><td>B3-Q01</td><td>ISIN availability on Binary UMDF DRV: is tag 'iSIN' present in SecurityDefinition messages for derivatives instruments, or must ISINs be sourced from a separate B3 reference data file / legacy feed?</td></tr>
+        <tr class="q-high"><td>HIGH</td><td>B3-Q02</td><td>SecondaryOrderID reuse: confirm whether B3 guarantees uniqueness of secondaryOrderID within a trading day (across all instruments on a channel) or only per instrument. BMLL order ID minting depends on this.</td></tr>
+        <tr class="q-high"><td>HIGH</td><td>B3-Q03</td><td>SettlementPrice (template 28) and OpenInterest (template 29) were added in v1.8.0 (April 2024). What is the earliest date for which historical data in these messages is available in BMLL's capture history?</td></tr>
+        <tr class="q-high"><td>HIGH</td><td>B3-Q04</td><td>LEG_TRADE PRINTABLE logic: should leg trades (trdSubType=102) have PRINTABLE=false to prevent double-counting with the parent strategy-level trade? If yes, how is the strategy-level trade identified for matching?</td></tr>
+        <tr class="q-med"><td>MED</td><td>B3-Q05</td><td>PUBLICATION_TIMESTAMP source: is aggressorTime (tag 2445) the correct source for BMLL PUBLICATION_TIMESTAMP, or should a packet-level timestamp be used instead?</td></tr>
+        <tr class="q-med"><td>MED</td><td>B3-Q06</td><td>Implied orders on DRV: does B3 publish any implied (synthetic) order book updates on the derivatives feed? The spec mentions User-Defined and Exchange-Defined Spreads — are leg prices implied from the strategy price?</td></tr>
+        <tr class="q-med"><td>MED</td><td>B3-Q07</td><td>BMLL_SETTLEMENT_PRICE_TYPE mapping: confirm the mapping of B3's openCloseSettlFlag + settlPriceType combinations to BMLL's Preliminary/Final × Estimated/Actual matrix.</td></tr>
+        <tr class="q-med"><td>MED</td><td>B3-Q08</td><td>CONTRACT_TYPE for DRV: what is the full set of CONTRACT_TYPE values BMLL needs to support for B3 futures (Outright, Spread, Calendar Spread, Inter-Commodity)? Does the SecurityDefinition contain enough fields to distinguish these?</td></tr>
+        <tr class="q-low"><td>LOW</td><td>B3-Q09</td><td>minCrossQty (tag 35561): is this field relevant for any BMLL output schema or is it reference data only?</td></tr>
+        <tr class="q-low"><td>LOW</td><td>B3-Q10</td><td>ForwardTrade (Termo) instruments: are these in scope for BMLL B3 Futures coverage? If yes, confirm mapping of interest rate and sellerDays fields.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr>
+<p style="color:var(--text-dim);font-size:12px;text-align:center;padding-top:8px;">
+  B3 (BVMF) Futures Exchange Analysis · BMLL Content Team · Draft · Sources: Binary UMDF Messaging Specification Guidelines v1.8.0.2 (May 2024); Binary UMDF Message Reference v2.2.0.1; SBE XML Schema b3-market-data-messages-2_2_0.xml
+</p>
+
+</main>
+</div>
+</body>
+</html>
